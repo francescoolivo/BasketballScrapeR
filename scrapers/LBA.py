@@ -4,9 +4,12 @@ import math
 import os
 import re
 from datetime import timedelta
+
+import pandas as pd
 from bs4 import BeautifulSoup
 import requests as requests
 from requests.adapters import HTTPAdapter
+from tqdm import tqdm
 from urllib3 import Retry
 import utils
 from scraper import Scraper
@@ -275,18 +278,18 @@ class LBAScraper(Scraper):
 
         return mapping
 
-    def get_starters(self):
-        url = f'https://www.legabasket.it/game/{self.current_game["game_id"]}/scores'
-        soup = utils.get_soup(url)
+    def get_starters(self, soup):
+        # url = f'https://www.legabasket.it/game/{self.current_game["game_id"]}/scores'
+        # soup = utils.get_soup(url)
 
         starters = dict()
         starters['home'] = []
         starters['away'] = []
 
-        while soup is None:
-            soup = utils.get_soup(url)
-
         scores_div = soup.find('div', id='scores')
+
+        if scores_div is None:
+            return starters
 
         table = scores_div.find('table', id='ht_match_scores').find_next('tbody')
         for tr in table.find_all('tr'):
@@ -313,7 +316,7 @@ class LBAScraper(Scraper):
     def handle_substitutions(self, raw_actions):
         actions = []
 
-        starters = self.get_starters()
+        starters = self.starters
         home_team_players = starters['home']
         away_team_players = starters['away']
 
@@ -749,6 +752,96 @@ class LBAScraper(Scraper):
             actions.append(action)
 
         return actions
+
+    def get_tadd(self, season_id):
+        url = 'https://www.legabasket.it/lba/6/calendario/standings'
+        params = {'s': season_id}
+
+        soup = utils.get_soup(url, params=params)
+        table = soup.find('table', class_='full-standings')
+        tbody = table.find('tbody')
+
+        result = []
+
+        for tr in tbody.find_all('tr'):
+            tds = tr.find_all('td')
+
+            rank = int(tds[0].text.strip())
+            result.append({
+                'Team': tds[1].text.strip(),
+                'team': '',
+                'Conference': '',
+                'Division': '',
+                'Rank': rank,
+                'Playoff': 'Y' if rank <= 8 else 'N',
+            })
+
+        return result
+
+    def download_data(self, **kwargs):
+        dataframes = dict()
+        seasons = self.get_seasons(**kwargs)
+
+        for season in seasons:
+            dataframes[season] = dict()
+
+            players_df = pd.DataFrame(
+                columns=['Team', 'Player', 'MIN', 'PTS', 'P2M', 'P2A', 'P3M', 'P3A', 'FTM', 'FTA', 'OREB', 'DREB',
+                         'AST', 'TOV', 'STL', 'BLK', 'PF', 'PM'])
+            team_df = pd.DataFrame(
+                columns=['Team', 'MIN', 'PTS', 'P2M', 'P2A', 'P3M', 'P3A', 'FTM', 'FTA', 'OREB', 'DREB', 'AST', 'TOV',
+                         'STL', 'BLK', 'PF', 'PM'])
+            opponent_df = pd.DataFrame(
+                columns=['Team', 'MIN', 'PTS', 'P2M', 'P2A', 'P3M', 'P3A', 'FTM', 'FTA', 'OREB', 'DREB', 'AST', 'TOV',
+                         'STL', 'BLK', 'PF', 'PM'])
+            pbp_df = pd.DataFrame(
+                columns=['game_id', 'data_set', 'date', 'a1', 'a2', 'a3', 'a4', 'a5', 'h1', 'h2', 'h3', 'h4', 'h5',
+                         'period', 'home_score', 'away_score', 'remaining_time', 'elapsed_time', 'play_length',
+                         'play_id', 'team', 'event_type', 'assist', 'away', 'home', 'block', 'entered', 'left', 'num',
+                         'opponent', 'outof', 'player', 'points', 'possession', 'reason', 'result', 'steal', 'type',
+                         'shot_distance', 'original_x', 'original_y', 'converted_x', 'converted_y', 'description'])
+
+            tadd = self.get_tadd(season_id=season)
+            tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
+
+            games = self.get_games(seasons[season])
+
+            for game in tqdm(games):
+
+                self.current_game = game
+                url = f'https://www.legabasket.it/game/{game["game_id"]}'
+
+                soup = utils.get_soup(url)
+
+                self.starters = self.get_starters(soup)
+
+                boxes = self.get_boxes(soup)
+
+                if not boxes:
+                    continue
+
+                try:
+
+                    for team in boxes:
+                        players_df = pd.concat([players_df, pd.DataFrame(boxes[team]['players'])], ignore_index=True)
+                        team_df = pd.concat([team_df, pd.DataFrame(boxes[team]['team'])], ignore_index=True)
+                        opponent_df = pd.concat([opponent_df, pd.DataFrame(boxes[team]['opponent'])], ignore_index=True)
+
+                except TypeError:
+                    continue
+
+                raw_actions = self.get_actions()
+                actions = self.clean_actions(raw_actions)
+
+                pbp_df = pd.concat([pbp_df, pd.DataFrame(actions)], ignore_index=True)
+
+            dataframes[season]['Pbox'] = self.summarize_players_df(players_df)
+            dataframes[season]['Tbox'] = self.summarize_teams_df(team_df)
+            dataframes[season]['Obox'] = self.summarize_teams_df(opponent_df, opponent=True)
+            dataframes[season]['PBP'] = pbp_df
+            dataframes[season]['Tadd'] = tadd_df
+
+        return dataframes
 
     def map_event_type(self, description):
         mapping = {
