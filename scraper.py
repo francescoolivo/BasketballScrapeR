@@ -82,7 +82,7 @@ class Scraper(ABC):
                          'shot_distance', 'original_x', 'original_y', 'converted_x', 'converted_y', 'description'])
 
             tadd = self.get_tadd(season_id=season)
-            tadd_df = pd.DataFrame(tadd)
+            tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
             games = self.get_games(seasons[season])
 
@@ -134,11 +134,18 @@ class Scraper(ABC):
 
         return ag
 
-    def summarize_teams_df(self, df):
+    def summarize_teams_df(self, df, opponent=False):
         ag = df.groupby(['Team']).sum()
         ag['GP'] = df[df['MIN'] > 0].groupby(['Team'])['MIN'].count()
-        ag['W'] = df[df['PM'] > 0].groupby(['Team'])['PM'].count()
-        ag['L'] = df[df['PM'] < 0].groupby(['Team'])['PM'].count()
+
+        if not opponent:
+            ag['W'] = df[df['PM'] > 0].groupby(['Team'])['PM'].count()
+            ag['L'] = df[df['PM'] < 0].groupby(['Team'])['PM'].count()
+        else:
+            ag['W'] = df[df['PM'] < 0].groupby(['Team'])['PM'].count()
+            ag['L'] = df[df['PM'] > 0].groupby(['Team'])['PM'].count()
+            ag['PM'] = - ag['PM']
+
         ag['GP'] = ag['GP'].fillna(0).astype('int')
         ag['W'] = ag['W'].fillna(0).astype('int')
         ag['L'] = ag['L'].fillna(0).astype('int')
