@@ -761,22 +761,23 @@ class LBAScraper(Scraper):
         table = soup.find('table', class_='full-standings')
         tbody = table.find('tbody')
 
-        result = []
+        df = pd.DataFrame(columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
         for tr in tbody.find_all('tr'):
             tds = tr.find_all('td')
 
             rank = int(tds[0].text.strip())
-            result.append({
+
+            df = pd.concat([df, pd.DataFrame([{
                 'Team': tds[1].text.strip(),
                 'team': '',
                 'Conference': '',
                 'Division': '',
                 'Rank': rank,
                 'Playoff': 'Y' if rank <= 8 else 'N',
-            })
+            }])], ignore_index=True)
 
-        return result
+        return df.sort_values(by=['Team'])
 
     def download_data(self, **kwargs):
         dataframes = dict()
@@ -801,8 +802,8 @@ class LBAScraper(Scraper):
                          'opponent', 'outof', 'player', 'points', 'possession', 'reason', 'result', 'steal', 'type',
                          'shot_distance', 'original_x', 'original_y', 'converted_x', 'converted_y', 'description'])
 
-            tadd = self.get_tadd(season_id=season)
-            tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
+            tadd_df = self.get_tadd(season_id=season)
+            # tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
             games = self.get_games(seasons[season])
 

@@ -50,6 +50,6 @@ for league in args.leagues:
 
         for entry in ['Pbox', 'Tbox', 'Obox', 'PBP', 'Tadd']:
             filename = os.path.join(dir_path, entry + '.csv')
-            dfs[year][entry].to_csv(filename, float_format='%.5f')
+            dfs[year][entry].to_csv(filename, float_format='%.5f', index=False)
 
 exit(0)
