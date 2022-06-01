@@ -48,8 +48,8 @@ for league in args.leagues:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        for entry in ['Pbox', 'Tbox', 'Obox', 'PBP', 'Tadd']:
-            filename = os.path.join(dir_path, entry + '.csv')
-            dfs[year][entry].to_csv(filename, float_format='%.5f', index=False)
+        for entry in [('Pbox', True), ('Tbox', True), ('Obox', True), ('PBP', False), ('Tadd', False)]:
+            filename = os.path.join(dir_path, entry[0] + '.csv')
+            dfs[year][entry[0]].to_csv(filename, float_format='%.5f', index=entry[1])
 
 exit(0)

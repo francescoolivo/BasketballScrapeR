@@ -333,7 +333,7 @@ class LBAScraper(Scraper):
         # To handle cases where the same substitution is repeated
         substitutions = set()
 
-        faulted_games = {'23482', '23029'}
+        faulted_games = {'23482', '23029', '23098', '23118', '23156', '23210'}
 
         # add a flag to an action so that we can ignore it while iterating
         for raw_action in raw_actions:
@@ -832,6 +832,12 @@ class LBAScraper(Scraper):
                     continue
 
                 raw_actions = self.get_actions()
+                if not raw_actions:
+                    print(f"Missing play-by-play logs for game {game}")
+                    continue
+                elif game['game_id'] in {'23096'}:
+                    print(f"Game play-by-play is faulted, ignoring. {game}")
+                    continue
                 actions = self.clean_actions(raw_actions)
 
                 pbp_df = pd.concat([pbp_df, pd.DataFrame(actions)], ignore_index=True)
