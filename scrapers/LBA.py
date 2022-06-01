@@ -177,8 +177,8 @@ class LBAScraper(Scraper):
         try:
             response = session.get(period_url).json()
         except json.decoder.JSONDecodeError:
-            print(period_url)
-            exit()
+            print(f"Actions not found for game {game} @ {period_url}")
+            return actions
         while response['data']['pbp'] is not None and response['data']['pbp']:
             actions += response['data']['pbp']
             period += 1
@@ -329,7 +329,7 @@ class LBAScraper(Scraper):
         # To handle cases where the same substitution is repeated
         substitutions = set()
 
-        faulted_games = {'23482'}
+        faulted_games = {'23482', '23029'}
 
         # add a flag to an action so that we can ignore it while iterating
         for raw_action in raw_actions:
@@ -337,21 +337,26 @@ class LBAScraper(Scraper):
             raw_action['to_ignore'] = False
 
         sub_count = dict()
-        sub_count[0] = dict()
-        sub_count[1] = dict()
+
+
+        for i in [0, 1]:
+            sub_count[i] = dict()
+            sub_count[i]['Ingresso'] = 0
+            sub_count[i]['Uscita'] = 0
+
         for raw_action in raw_actions:
             if raw_action['description'] in ['Ingresso', 'Uscita']:
-                if raw_action['description'] not in sub_count[raw_action['home_club']]:
-                    sub_count[raw_action['home_club']][raw_action['description']] = 0
-
                 sub_count[raw_action['home_club']][raw_action['description']] += 1
 
         for team in [1, 0]:
+            if sub_count[team]['Ingresso'] == 0 and  sub_count[team]['Uscita'] == 0:
+                print(f"ERROR: 0 subs in game {self.current_game}")
+                exit(1)
             if sub_count[team]['Ingresso'] != sub_count[team]['Uscita']:
-                print(f"IN: {sub_count[team]['Ingresso']}, OUT: {sub_count[team]['Uscita']}")
+                # print(f"IN: {sub_count[team]['Ingresso']}, OUT: {sub_count[team]['Uscita']}")
                 # case 1: one IN more than OUT, likely it's repeated
                 if sub_count[team]['Ingresso'] - sub_count[team]['Uscita'] == 1:
-                    print(f"Sub error type 1, team {team}")
+                    # print(f"Sub error type 1, team {team}")
 
                     substitution_check = set()
                     for raw_action in raw_actions:
@@ -367,7 +372,7 @@ class LBAScraper(Scraper):
 
                 # case 2: one OUT more than IN, we shall check when a player which is on court is removed
                 elif sub_count[team]['Uscita'] - sub_count[team]['Ingresso'] == 1:
-                    print(f"Sub error type 2, team {team}")
+                    # print(f"Sub error type 2, team {team}")
 
                     players_temp = set(players[team].copy())
 
@@ -386,7 +391,7 @@ class LBAScraper(Scraper):
                                     break
                 # case 3: more errors, likely the same error has been repeated more than once
                 elif abs(sub_count[team]['Uscita'] - sub_count[team]['Ingresso']) > 1:
-                    print(f"Sub error type 3, team {team}")
+                    # print(f"Sub error type 3, team {team}")
 
                     for raw_action in raw_actions:
                         if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action['home_club'] == team and not raw_action['to_ignore']:
@@ -414,7 +419,7 @@ class LBAScraper(Scraper):
                 raw_action['away_players'] = away_team_players.copy()
                 actions.append(raw_action)
 
-            elif raw_action['description'] in ['Ingresso', 'Uscita'] and not raw_action['checked']:
+            elif raw_action['description'] in ['Ingresso', 'Uscita'] and not raw_action['checked'] and raw_action['player_name'] and raw_action['player_surname']:
 
                 type_to_look_for = 'Uscita' if raw_action['description'] == 'Ingresso' else 'Ingresso'
 
@@ -423,7 +428,7 @@ class LBAScraper(Scraper):
                 # looking for the next out substitution for the team
                 for next_raw_action in raw_actions[raw_action_index+1:]:
                     if next_raw_action['description'] == type_to_look_for and raw_action['team_name'] == \
-                            next_raw_action['team_name'] and not next_raw_action['checked']:  # and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
+                            next_raw_action['team_name'] and not next_raw_action['checked'] and next_raw_action and next_raw_action['player_name'] and next_raw_action['player_surname']:  # and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
                         if type_to_look_for == 'Uscita':
                             player_in = ' '.join(
                                 [raw_action['player_name'].title(), raw_action['player_surname'].title()])
@@ -476,13 +481,13 @@ class LBAScraper(Scraper):
                             # print(f'switched players | {sub}')
                             next_raw_action['checked'] = True
 
-                            print(f"Ignored {sub}")
+                            # print(f"Ignored {sub}")
                             break
 
                         elif player_out not in players[raw_action['home_club']] and self.current_game['game_id'] in faulted_games:
                             next_raw_action['checked'] = True
 
-                            print(f"Faulted game, ignored {sub}")
+                            # print(f"Faulted game, ignored {sub}")
                             break
 
 
@@ -495,7 +500,7 @@ class LBAScraper(Scraper):
                         elif player_out not in players[raw_action['home_club']]:
                             #return actions
                             raise SubstitutionError(
-                                f"{player_out} should be on court for {team_descriptions[raw_action['home_club']]} team but he is not. On court players are {players[raw_action['home_club']]}\nSub is {sub}")
+                                f"{player_out} should be on court for {team_descriptions[raw_action['home_club']]} team but he is not. On court players are {players[raw_action['home_club']]}\nSub is {sub}\n{self.current_game}")
 
                         else:
                             player_out_index = players[raw_action['home_club']].index(player_out)
@@ -743,12 +748,6 @@ class LBAScraper(Scraper):
             actions.append(action)
 
         return actions
-
-    def insert_actions(self, actions):
-        pass
-
-    def get_tadd(self):
-        pass
 
     def map_event_type(self, description):
         mapping = {

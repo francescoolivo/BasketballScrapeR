@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from bs4 import BeautifulSoup
 import utils
+from tqdm import tqdm
 
 
 class Scraper(ABC):
@@ -30,6 +31,31 @@ class Scraper(ABC):
     def get_boxes(self, soup: BeautifulSoup):
         pass
 
+    def get_tadd(self, season_id):
+        url = 'https://www.legabasket.it/lba/6/calendario/standings'
+        params = {'s': season_id}
+
+        soup = utils.get_soup(url, params=params)
+        table = soup.find('table', class_='full-standings')
+        tbody = table.find('tbody')
+
+        result = []
+
+        for tr in tbody.find_all('tr'):
+            tds = tr.find_all('td')
+
+            rank = int(tds[0].text.strip())
+            result.append({
+                'Team': tds[1].text.strip(),
+                'team': '',
+                'Conference': '',
+                'Division': '',
+                'Rank': rank,
+                'Playoff': 'Y' if rank <= 8 else 'N',
+            })
+
+        return result
+
     def download_data(self, **kwargs):
         dataframes = dict()
         seasons = self.get_seasons(**kwargs)
@@ -53,10 +79,12 @@ class Scraper(ABC):
                          'opponent', 'outof', 'player', 'points', 'possession', 'reason', 'result', 'steal', 'type',
                          'shot_distance', 'original_x', 'original_y', 'converted_x', 'converted_y', 'description'])
 
+            tadd = self.get_tadd(season_id=season)
+            tadd_df = pd.DataFrame(tadd)
+
             games = self.get_games(seasons[season])
 
-            for game in games:
-                print(f'Analyzing game {game}')
+            for game in tqdm(games):
 
                 self.current_game = game
                 url = f'https://www.legabasket.it/game/{game["game_id"]}'
@@ -87,6 +115,7 @@ class Scraper(ABC):
             dataframes[season]['Tbox'] = self.summarize_teams_df(team_df)
             dataframes[season]['Obox'] = self.summarize_teams_df(opponent_df)
             dataframes[season]['PBP'] = pbp_df
+            dataframes[season]['Tadd'] = tadd_df
 
         return dataframes
 

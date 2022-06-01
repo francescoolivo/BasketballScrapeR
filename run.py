@@ -15,14 +15,14 @@ def get_scraper(name):
 
 parser = argparse.ArgumentParser()
 
-league_help = 'the leagues to save; allowed value as of today are: LBA'
-parser.add_argument('-l', '--leagues', nargs='+', required=True, help=league_help)
+league_help = 'the leagues to save; allowed value as of today are: LBA (default)'
+parser.add_argument('-l', '--leagues', nargs='+', required=True, help=league_help, default=['LBA'])
 
 seasons_help = 'the seasons to save in the format starting_year-ending_year (ex: 2020-2021 2021-2022)'
 parser.add_argument('-s', '--seasons', nargs='+', help=seasons_help, default=[])
 
-output_help = 'the output dir where to save csvs'
-parser.add_argument('-o', '--output', type=str, help=output_help)
+output_help = 'the output dir where to save csvs. Default is "csvs"'
+parser.add_argument('-o', '--output', type=str, help=output_help, default='csvs')
 
 args = parser.parse_args()
 
@@ -40,14 +40,16 @@ for league in args.leagues:
 
     dfs = scraper.download_data(**kwargs)
 
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
-
     for year in dfs:
-        year_code = f'{year%1000}-{(year+1)%1000}'
+        year_code = f'{year%1000}{(year+1)%1000}'
 
-        for entry in ['Pbox', 'Tbox', 'Obox', 'PBP']:
-            filename = os.path.join(args.output, entry + year_code + '.csv')
+        dir_path = os.path.join(args.output, league, year_code)
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        for entry in ['Pbox', 'Tbox', 'Obox', 'PBP', 'Tadd']:
+            filename = os.path.join(dir_path, entry + '.csv')
             dfs[year][entry].to_csv(filename, float_format='%.5f')
 
 exit(0)
