@@ -241,7 +241,8 @@ class LBAScraper(Scraper):
         for t1 in boxes:
             for t2 in boxes:
                 if t1 != t2:
-                    boxes[t1]['opponent'] = boxes[t2]['team']
+                    boxes[t1]['opponent'] = [boxes[t2]['team'][0].copy()]
+                    boxes[t1]['opponent'][0]['Team'] = t1
 
         for t in boxes:
             boxes[t]['team'][0]['PM'] = boxes[t]['team'][0]['PTS'] - boxes[t]['opponent'][0]['PTS']
