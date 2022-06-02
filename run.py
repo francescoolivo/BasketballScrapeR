@@ -1,6 +1,5 @@
 import argparse
 import os
-from datetime import datetime
 from scrapers.LBA import LBAScraper
 
 
@@ -13,6 +12,7 @@ def get_scraper(name):
 
     return scraper
 
+
 parser = argparse.ArgumentParser()
 
 league_help = 'the leagues to save; allowed value as of today are: LBA (default)'
@@ -24,11 +24,14 @@ parser.add_argument('-s', '--seasons', nargs='+', help=seasons_help, default=[])
 output_help = 'the output dir where to save csvs. Default is "csvs"'
 parser.add_argument('-o', '--output', type=str, help=output_help, default='csvs')
 
-args = parser.parse_args()
+ignore_help = 'whether to ignore the play-by-play logs in order to only download the box-scores'
+parser.add_argument('--ignore_pbp', action='store_true', default=False)
 
+args = parser.parse_args()
 
 kwargs = {
     'seasons': args.seasons,
+    'ignore_pbp': args.ignore_pbp,
 }
 
 for league in args.leagues:
@@ -41,7 +44,7 @@ for league in args.leagues:
     dfs = scraper.download_data(**kwargs)
 
     for year in dfs:
-        year_code = f'{year%1000}{(year+1)%1000}'
+        year_code = f'{year % 1000}{(year + 1) % 1000}'
 
         dir_path = os.path.join(args.output, league, year_code)
 

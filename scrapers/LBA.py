@@ -342,7 +342,6 @@ class LBAScraper(Scraper):
 
         sub_count = dict()
 
-
         for i in [0, 1]:
             sub_count[i] = dict()
             sub_count[i]['Ingresso'] = 0
@@ -353,9 +352,7 @@ class LBAScraper(Scraper):
                 sub_count[raw_action['home_club']][raw_action['description']] += 1
 
         for team in [1, 0]:
-            if sub_count[team]['Ingresso'] == 0 and  sub_count[team]['Uscita'] == 0:
-                print(f"ERROR: 0 subs in game {self.current_game}")
-                exit(1)
+
             if sub_count[team]['Ingresso'] != sub_count[team]['Uscita']:
                 # print(f"IN: {sub_count[team]['Ingresso']}, OUT: {sub_count[team]['Uscita']}")
                 # case 1: one IN more than OUT, likely it's repeated
@@ -398,7 +395,8 @@ class LBAScraper(Scraper):
                     # print(f"Sub error type 3, team {team}")
 
                     for raw_action in raw_actions:
-                        if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action['home_club'] == team and not raw_action['to_ignore']:
+                        if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action[
+                            'home_club'] == team and not raw_action['to_ignore']:
                             found = False
                             type_to_look_for = 'Uscita' if raw_action['description'] == 'Ingresso' else 'Ingresso'
 
@@ -407,8 +405,12 @@ class LBAScraper(Scraper):
                             # looking for the next out substitution for the team
                             for next_raw_action in raw_actions[raw_action_index:]:
                                 if next_raw_action['description'] == type_to_look_for and raw_action['team_name'] == \
-                                        next_raw_action['team_name'] and next_raw_action['home_club'] == team and (not next_raw_action['checked']) and (not next_raw_action['to_ignore']) and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
-
+                                        next_raw_action['team_name'] and next_raw_action['home_club'] == team and (
+                                        not next_raw_action['checked']) and (not next_raw_action['to_ignore']) and \
+                                        raw_action[
+                                            'minute'] == next_raw_action['minute'] and raw_action['seconds'] == \
+                                        next_raw_action[
+                                            'seconds']:
                                     found = True
                                     raw_action['to_ignore'] = True
                                     next_raw_action['to_ignore'] = True
@@ -423,16 +425,19 @@ class LBAScraper(Scraper):
                 raw_action['away_players'] = away_team_players.copy()
                 actions.append(raw_action)
 
-            elif raw_action['description'] in ['Ingresso', 'Uscita'] and not raw_action['checked'] and raw_action['player_name'] and raw_action['player_surname']:
+            elif raw_action['description'] in ['Ingresso', 'Uscita'] and not raw_action['checked'] and raw_action[
+                'player_name'] and raw_action['player_surname']:
 
                 type_to_look_for = 'Uscita' if raw_action['description'] == 'Ingresso' else 'Ingresso'
 
                 raw_action_index = raw_actions.index(raw_action)
 
                 # looking for the next out substitution for the team
-                for next_raw_action in raw_actions[raw_action_index+1:]:
+                for next_raw_action in raw_actions[raw_action_index + 1:]:
                     if next_raw_action['description'] == type_to_look_for and raw_action['team_name'] == \
-                            next_raw_action['team_name'] and not next_raw_action['checked'] and next_raw_action and next_raw_action['player_name'] and next_raw_action['player_surname']:  # and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
+                            next_raw_action['team_name'] and not next_raw_action['checked'] and next_raw_action and \
+                            next_raw_action['player_name'] and next_raw_action[
+                        'player_surname']:  # and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
                         if type_to_look_for == 'Uscita':
                             player_in = ' '.join(
                                 [raw_action['player_name'].title(), raw_action['player_surname'].title()])
@@ -451,14 +456,17 @@ class LBAScraper(Scraper):
                         sub_in = f"IN: {player_in} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
                         sub_out = f"OUT: {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
 
-                        if player_out in players[raw_action['home_club']] and player_in in players[raw_action['home_club']]:
+                        if player_out in players[raw_action['home_club']] and player_in in players[
+                            raw_action['home_club']]:
                             raw_action_index = raw_actions.index(raw_action)
                             found = False
                             for next_raw_action_2 in raw_actions[raw_action_index + 1:]:
-                                if next_raw_action_2['home_club'] == raw_action['home_club'] and next_raw_action_2['player_surname'] and next_raw_action_2['player_name']:
+                                if next_raw_action_2['home_club'] == raw_action['home_club'] and next_raw_action_2[
+                                    'player_surname'] and next_raw_action_2['player_name']:
                                     player = ' '.join([next_raw_action_2['player_name'].title(),
                                                        next_raw_action_2['player_surname'].title()])
-                                    if next_raw_action_2['description'] != 'Ingresso' and player not in players[raw_action['home_club']]:
+                                    if next_raw_action_2['description'] != 'Ingresso' and player not in players[
+                                        raw_action['home_club']]:
                                         found = True
 
                                         player_in = player
@@ -474,10 +482,11 @@ class LBAScraper(Scraper):
                                 next_raw_action['checked'] = True
 
                                 break
-                                raise SubstitutionError(f"Could not find a player to replace {player_out}, {sub}")
+                                # raise SubstitutionError(f"Could not find a player to replace {player_out}, {sub}")
 
                         # switch players
-                        elif player_out not in players[raw_action['home_club']] and player_in in players[raw_action['home_club']]:
+                        elif player_out not in players[raw_action['home_club']] and player_in in players[
+                            raw_action['home_club']]:
                             #
                             # player_in, player_out = player_out, player_in
                             # sub = f"SUB: {player_in} for {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
@@ -488,21 +497,19 @@ class LBAScraper(Scraper):
                             # print(f"Ignored {sub}")
                             break
 
-                        elif player_out not in players[raw_action['home_club']] and self.current_game['game_id'] in faulted_games:
+                        elif player_out not in players[raw_action['home_club']] and self.current_game[
+                            'game_id'] in faulted_games:
                             next_raw_action['checked'] = True
 
                             # print(f"Faulted game, ignored {sub}")
                             break
-
-
-
 
                         if sub_in in substitutions or sub_out in substitutions:
                             next_raw_action['checked'] = True
                             break
 
                         elif player_out not in players[raw_action['home_club']]:
-                            #return actions
+                            # return actions
                             raise SubstitutionError(
                                 f"{player_out} should be on court for {team_descriptions[raw_action['home_club']]} team but he is not. On court players are {players[raw_action['home_club']]}\nSub is {sub}\n{self.current_game}")
 
@@ -523,9 +530,6 @@ class LBAScraper(Scraper):
                         actions.append(raw_action)
 
                         break
-
-
-
 
         return actions
 
@@ -661,11 +665,12 @@ class LBAScraper(Scraper):
 
             action['assist'] = ''
 
-            if event_type == 'jump ball' and raw_action['home_club'] and raw_action['player_name'] and raw_action['player_surname']:
+            if event_type == 'jump ball' and raw_action['home_club'] and raw_action['player_name'] and raw_action[
+                'player_surname']:
                 action['away'] = ''
                 action['home'] = ' '.join([raw_action['player_name'], raw_action['player_surname']]).title().strip()
             elif event_type == 'jump ball' and not raw_action['home_club'] and raw_action['player_name'] and raw_action[
-                    'player_surname']:
+                'player_surname']:
                 action['away'] = ' '.join([raw_action['player_name'], raw_action['player_surname']]).title().strip()
                 action['home'] = ''
             else:
@@ -821,14 +826,12 @@ class LBAScraper(Scraper):
                 if not boxes:
                     continue
 
-                try:
+                for team in boxes:
+                    players_df = pd.concat([players_df, pd.DataFrame(boxes[team]['players'])], ignore_index=True)
+                    team_df = pd.concat([team_df, pd.DataFrame(boxes[team]['team'])], ignore_index=True)
+                    opponent_df = pd.concat([opponent_df, pd.DataFrame(boxes[team]['opponent'])], ignore_index=True)
 
-                    for team in boxes:
-                        players_df = pd.concat([players_df, pd.DataFrame(boxes[team]['players'])], ignore_index=True)
-                        team_df = pd.concat([team_df, pd.DataFrame(boxes[team]['team'])], ignore_index=True)
-                        opponent_df = pd.concat([opponent_df, pd.DataFrame(boxes[team]['opponent'])], ignore_index=True)
-
-                except TypeError:
+                if kwargs['ignore_pbp']:
                     continue
 
                 raw_actions = self.get_actions()

@@ -1,10 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-
-import pandas as pd
 from bs4 import BeautifulSoup
-import utils
-from tqdm import tqdm
 
 
 class Scraper(ABC):
