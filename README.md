@@ -41,6 +41,12 @@ For this reason, in case you are interested only in the box-scores, you can run 
 python3 run.py -l LBA -s '2018-2019' --ignore_pbp
 ```
 
+Also, you can edit some minor details such as the separators to use for decimal number and csv files. You can change the default ones by using the `--decimal_separator` and the `--csv_separator` flags. For instance if you want to use `;` as csv separator and `,` as decimal separator, you can simply run:
+
+```shell
+python3 run.py -l LBA -s '2021-2022' --decimal_separator "," --csv_separator ";" 
+```
+
 You should know that due to server-side errors play-by-play logs for the 2020-2021 and previous seasons are incomplete and sometimes faulted.
 
 ## Future developments
