@@ -724,7 +724,7 @@ class LBAScraper(Scraper):
 
             # original coordinates place the origin in the bottom left corner. The coordinate span is (0, 100) foir both axis, so we shall divide by the number of feet of the size
 
-            if raw_action['x'] and raw_action['y'] and event_type in {'miss', 'shot'}:
+            if raw_action['x'] and raw_action['y']:
                 original_x = raw_action['x']
                 original_y = raw_action['y']
 
