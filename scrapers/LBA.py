@@ -728,8 +728,8 @@ class LBAScraper(Scraper):
                 original_x = raw_action['x']
                 original_y = raw_action['y']
 
-                converted_x = original_x * .9186
-                converted_y = original_y * .4921
+                converted_y = original_x * .9186
+                converted_x = original_y * .4921
 
                 # left side
                 if raw_action['side'] == 0:  # and raw_action['side_area_zone'] == 'A':

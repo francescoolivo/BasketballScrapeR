@@ -4,7 +4,7 @@ BasketballScrapeR is a python web scraper that downloads data from European bask
 
 At the moment the only supported league is the Italian National League (LBA).
 
-## Download and set up
+## Download andset up
 
 You can download BasketballScrapeR from the command line:
 ```shell
