@@ -51,7 +51,6 @@ dependencies:
   - lcms2=2.12
   - libpng=1.6.37
   - libsodium=1.0.18
-  - libstdcxx-ng=11.2.0
   - libtiff=4.2.0
   - libwebp=1.2.2
   - libwebp-base=1.2.2
