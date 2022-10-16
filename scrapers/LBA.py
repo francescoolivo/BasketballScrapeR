@@ -1,10 +1,8 @@
 from datetime import datetime
 import json
 import math
-import os
 import re
 from datetime import timedelta
-
 import pandas as pd
 from bs4 import BeautifulSoup
 import requests as requests
@@ -722,8 +720,7 @@ class LBAScraper(Scraper):
 
             action['type'] = self.map_type(raw_action)
 
-            # original coordinates place the origin in the bottom left corner. The coordinate span is (0, 100) foir both axis, so we shall divide by the number of feet of the size
-
+            # original coordinates place the origin in the bottom left corner. The coordinate span is (0, 100) for both axis, so we shall divide by the number of feet of the size
             if raw_action['x'] and raw_action['y']:
                 original_x = raw_action['x']
                 original_y = raw_action['y']
