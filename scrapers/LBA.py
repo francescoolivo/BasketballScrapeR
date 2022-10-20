@@ -564,12 +564,12 @@ class LBAScraper(Scraper):
             action['date'] = self.current_game['date']
 
             # print(raw_action['home_players'])
-            ap_l = list(raw_action['away_players'])
+            ap_l = sorted(list(raw_action['away_players']))
             for i in range(len(raw_action['away_players'])):
                 action[f"a{i + 1}"] = ap_l[i]
 
             # print(raw_action['away_players'])
-            hp_l = list(raw_action['home_players'])
+            hp_l = sorted(list(raw_action['home_players']))
             for i in range(len(raw_action['home_players'])):
                 action[f"h{i + 1}"] = hp_l[i]
 
