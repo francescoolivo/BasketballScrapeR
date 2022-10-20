@@ -16,6 +16,8 @@ from scraper import Scraper
 class SubstitutionError(Exception):
     pass
 
+IN_SUB_STRING = "Ingresso"
+OUT_SUB_STRING = "Uscita"
 
 class LBAScraper(Scraper):
 
@@ -97,6 +99,12 @@ class LBAScraper(Scraper):
                     url_id = tr.find(class_='result').find('a').attrs['href']
                     game_id = re.findall(r'/game/([0-9]*)/*', url_id)[0]
 
+                    game_result = tr.find(class_='result').text.strip()
+                    status = 'played' if game_result != '0 - 0' else 'scheduled'
+
+                    if status != 'played':
+                        continue
+
                     try:
                         date = datetime.strptime(':'.join(tr.find_all('td')[5].text.strip().split()),
                                                  '%d/%m/%Y:%H:%M')
@@ -143,6 +151,12 @@ class LBAScraper(Scraper):
                 for tr in soup.find('tbody').find_all('tr'):
                     url_id = tr.find(class_='result').find('a').attrs['href']
                     game_id = re.findall(r'/game/([0-9]*)/*', url_id)[0]
+
+                    game_result = tr.find(class_='result').text.strip()
+                    status = 'played' if game_result != '0 - 0' else 'scheduled'
+
+                    if status != 'played':
+                        continue
 
                     try:
                         date = datetime.strptime(':'.join(tr.find_all('td')[5].text.strip().split()),
@@ -315,8 +329,8 @@ class LBAScraper(Scraper):
         actions = []
 
         starters = self.starters
-        home_team_players = starters['home']
-        away_team_players = starters['away']
+        home_team_players = set(starters['home'])
+        away_team_players = set(starters['away'])
 
         players = {
             1: home_team_players,
@@ -333,201 +347,160 @@ class LBAScraper(Scraper):
 
         faulted_games = {'23482', '23029', '23098', '23118', '23156', '23210'}
 
+        # unfortunately, some substitutions must be fixed manually
+        faulted_actions = get_faulted_actions()
+        action_to_edit = get_actions_to_edit()
+        actions_to_add = get_actions_to_add()
+
+        game_website_id = self.current_game['game_id']
+
+        actions_to_reorder = get_actions_to_sort()
+        if game_website_id in actions_to_reorder:
+            for couple in actions_to_reorder[game_website_id]:
+                to_remove = raw_actions[couple[0]]
+                raw_actions.remove(to_remove)
+                raw_actions.insert(couple[1], to_remove)
+
+        if game_website_id in actions_to_add:
+            for couple in actions_to_add[game_website_id]:
+                raw_actions.insert(couple[0], couple[1])
+
         # add a flag to an action so that we can ignore it while iterating
+        subs = set()
         for raw_action in raw_actions:
             raw_action['checked'] = False
             raw_action['to_ignore'] = False
 
-        sub_count = dict()
+        for raw_action in raw_actions:
+            raw_action['checked'] = False
+            raw_action['to_ignore'] = False
+            edited = False
 
+            if game_website_id in action_to_edit and raw_action['action_id'] in action_to_edit[game_website_id]:
+                for key in action_to_edit[game_website_id][raw_action['action_id']]:
+                    raw_action[key] = action_to_edit[game_website_id][raw_action['action_id']][key]
+
+                edited = True
+
+            if game_website_id in faulted_actions and raw_action['action_id'] in faulted_actions[game_website_id]:
+                raw_action['to_ignore'] = True
+                edited = True
+
+            if raw_action['description'] in [IN_SUB_STRING, OUT_SUB_STRING] and not edited:
+                sub_str = f'{raw_action["description"]}|{raw_action["period"]}|{raw_action["print_time"]}|{raw_action["player_name"].title()} {raw_action["player_surname"].title()}'
+                if raw_action['print_time'] == '00:00':
+
+                    index = raw_actions.index(raw_action)
+                    time_error = False
+
+                    for next_action in raw_actions[index:]:
+                        if raw_action['period'] != next_action['period']:
+                            break
+                        elif next_action['print_time'] == '00:00' and next_action['description'] not in ['Ingresso',
+                                                                                                         'Uscita',
+                                                                                                         'Timeout',
+                                                                                                         'Fine Tempo'] and not \
+                        next_action['to_ignore']:
+                            time_error = True
+                            break
+                    if time_error:
+                        # print(f'Game {game_website_id} has some subs with missing timestamp in period {raw_action["period"]}. Ignoring repeated substitutions')
+                        continue
+                if sub_str in subs:
+                    raw_action['to_ignore'] = True
+                    # print(f'Sub {sub_str} in game {game_website_id} is replicated, thus ignored')
+                subs.add(sub_str)
+
+        # count the number of in and out substitutions for each team, to check that they are the same
+        sub_count = dict()
         for i in [0, 1]:
             sub_count[i] = dict()
-            sub_count[i]['Ingresso'] = 0
-            sub_count[i]['Uscita'] = 0
+            sub_count[i][IN_SUB_STRING] = 0
+            sub_count[i][OUT_SUB_STRING] = 0
 
         for raw_action in raw_actions:
-            if raw_action['description'] in ['Ingresso', 'Uscita']:
+            if raw_action['description'] in [IN_SUB_STRING, OUT_SUB_STRING] and not raw_action['to_ignore']:
                 sub_count[raw_action['home_club']][raw_action['description']] += 1
 
+        # check that the number of in and out subs is the same
         for team in [1, 0]:
+            if sub_count[team][IN_SUB_STRING] != sub_count[team][OUT_SUB_STRING]:
+                error = f'{game_website_id}, {team}, IN: {sub_count[team][IN_SUB_STRING]}, OUT: {sub_count[team][OUT_SUB_STRING]}'
+                raise Exception(error)
 
-            if sub_count[team]['Ingresso'] != sub_count[team]['Uscita']:
-                # print(f"IN: {sub_count[team]['Ingresso']}, OUT: {sub_count[team]['Uscita']}")
-                # case 1: one IN more than OUT, likely it's repeated
-                if sub_count[team]['Ingresso'] - sub_count[team]['Uscita'] == 1:
-                    # print(f"Sub error type 1, team {team}")
-
-                    substitution_check = set()
-                    for raw_action in raw_actions:
-                        if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action['home_club'] == team:
-
-                            player = ' '.join([raw_action['player_name'].title(), raw_action['player_surname'].title()])
-
-                            sub = f"{raw_action['description']}: {player} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
-                            if sub in substitution_check:
-                                raw_action['checked'] = True
-                            else:
-                                substitution_check.add(sub)
-
-                # case 2: one OUT more than IN, we shall check when a player which is on court is removed
-                elif sub_count[team]['Uscita'] - sub_count[team]['Ingresso'] == 1:
-                    # print(f"Sub error type 2, team {team}")
-
-                    players_temp = set(players[team].copy())
-
-                    for raw_action in raw_actions:
-                        if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action['home_club'] == team:
-                            player = ' '.join([raw_action['player_name'].title(), raw_action['player_surname'].title()])
-
-                            if raw_action['description'] == 'Ingresso':
-                                players_temp.add(player)
-                            elif raw_action['description'] == 'Uscita':
-                                if player in players_temp:
-                                    players_temp.remove(player)
-                                else:
-                                    # found
-                                    raw_action['checked'] = True
-                                    break
-                # case 3: more errors, likely the same error has been repeated more than once
-                elif abs(sub_count[team]['Uscita'] - sub_count[team]['Ingresso']) > 1:
-                    # print(f"Sub error type 3, team {team}")
-
-                    for raw_action in raw_actions:
-                        if raw_action['description'] in ['Ingresso', 'Uscita'] and raw_action[
-                            'home_club'] == team and not raw_action['to_ignore']:
-                            found = False
-                            type_to_look_for = 'Uscita' if raw_action['description'] == 'Ingresso' else 'Ingresso'
-
-                            raw_action_index = raw_actions.index(raw_action)
-
-                            # looking for the next out substitution for the team
-                            for next_raw_action in raw_actions[raw_action_index:]:
-                                if next_raw_action['description'] == type_to_look_for and raw_action['team_name'] == \
-                                        next_raw_action['team_name'] and next_raw_action['home_club'] == team and (
-                                        not next_raw_action['checked']) and (not next_raw_action['to_ignore']) and \
-                                        raw_action[
-                                            'minute'] == next_raw_action['minute'] and raw_action['seconds'] == \
-                                        next_raw_action[
-                                            'seconds']:
-                                    found = True
-                                    raw_action['to_ignore'] = True
-                                    next_raw_action['to_ignore'] = True
-                                    break
-                            if not found:
-                                raw_action['checked'] = True
+        pending_subs = {
+            0: {
+                IN_SUB_STRING: set(),
+                OUT_SUB_STRING: set()
+            },
+            1: {
+                IN_SUB_STRING: set(),
+                OUT_SUB_STRING: set()
+            }
+        }
 
         for raw_action in raw_actions:
 
-            if raw_action['description'] not in ['Ingresso', 'Uscita']:
+            if raw_action['description'] not in [IN_SUB_STRING, OUT_SUB_STRING]:
                 raw_action['home_players'] = home_team_players.copy()
                 raw_action['away_players'] = away_team_players.copy()
                 actions.append(raw_action)
 
-            elif raw_action['description'] in ['Ingresso', 'Uscita'] and not raw_action['checked'] and raw_action[
-                'player_name'] and raw_action['player_surname']:
+            elif raw_action['description'] in [IN_SUB_STRING, OUT_SUB_STRING] and not raw_action['to_ignore'] and not raw_action['checked'] and \
+                    raw_action['player_name'] and raw_action['player_surname']:
 
-                type_to_look_for = 'Uscita' if raw_action['description'] == 'Ingresso' else 'Ingresso'
+                player = f'{raw_action["player_name"]} {raw_action["player_surname"]}'.title()
+                # 1. se il tipo dell'azione è uscita controllare che non ci siano ingressi in attesa. Se ci sono sostituire, altrimenti inserire in lista
+                # 2. se il tipo dell'azione è ingresso controllare che non ci siano uscite in attesa. Se ci sono sostituire, altrimenti inserire in lista
 
-                raw_action_index = raw_actions.index(raw_action)
+                type_to_look_for = OUT_SUB_STRING if raw_action['description'] == IN_SUB_STRING else IN_SUB_STRING
 
-                # looking for the next out substitution for the team
-                for next_raw_action in raw_actions[raw_action_index + 1:]:
-                    if next_raw_action['description'] == type_to_look_for and raw_action['team_name'] == \
-                            next_raw_action['team_name'] and not next_raw_action['checked'] and next_raw_action and \
-                            next_raw_action['player_name'] and next_raw_action[
-                        'player_surname']:  # and raw_action['minute'] == next_raw_action['minute'] and raw_action['seconds'] == next_raw_action['seconds']:
-                        if type_to_look_for == 'Uscita':
-                            player_in = ' '.join(
-                                [raw_action['player_name'].title(), raw_action['player_surname'].title()])
-                            player_out = ' '.join(
-                                [next_raw_action['player_name'].title(), next_raw_action['player_surname'].title()])
-                        else:
-                            player_in = ' '.join(
-                                [next_raw_action['player_name'].title(), next_raw_action['player_surname'].title()])
-                            player_out = ' '.join(
-                                [raw_action['player_name'].title(), raw_action['player_surname'].title()])
+                # if there is a player waiting to conclude the substitution, we shall replace him
+                # if the pending player is an out sub, we shall remove him from the list and add the entering player
+                # if the pending player is an in sub, we shall remove the current player from the list and add the entering player
+                if pending_subs[raw_action['home_club']][type_to_look_for]:
 
-                        if player_in == player_out:
-                            continue
+                    if type_to_look_for == OUT_SUB_STRING:  # is not empty
+                        player_to_be_removed = pending_subs[raw_action["home_club"]][type_to_look_for].pop()
+                        player_to_be_inserted = player
+                        # player_to_be_removed = self.players_cache[player_to_be_removed_str]
 
-                        sub = f"SUB: {player_in} for {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
-                        sub_in = f"IN: {player_in} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
-                        sub_out = f"OUT: {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
+                    else:
+                        player_to_be_removed = player
+                        player_to_be_inserted = pending_subs[raw_action["home_club"]][type_to_look_for].pop()
+                        # player_to_be_inserted = self.players_cache[player_to_be_inserted_str]
 
-                        if player_out in players[raw_action['home_club']] and player_in in players[
-                            raw_action['home_club']]:
-                            raw_action_index = raw_actions.index(raw_action)
-                            found = False
-                            for next_raw_action_2 in raw_actions[raw_action_index + 1:]:
-                                if next_raw_action_2['home_club'] == raw_action['home_club'] and next_raw_action_2[
-                                    'player_surname'] and next_raw_action_2['player_name']:
-                                    player = ' '.join([next_raw_action_2['player_name'].title(),
-                                                       next_raw_action_2['player_surname'].title()])
-                                    if next_raw_action_2['description'] != 'Ingresso' and player not in players[
-                                        raw_action['home_club']]:
-                                        found = True
+                    try:
+                        players[raw_action['home_club']].remove(player_to_be_removed)
+                        players[raw_action['home_club']].add(player_to_be_inserted)
 
-                                        player_in = player
-                                        sub = f"SUB: {player_in} for {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
-                                        sub_in = f"IN: {player_in} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
 
-                                        break
+                    except KeyError:
+                        error = f'Key Error: could not make substitution {player_to_be_inserted} for {player_to_be_removed}. Game is {self.current_game["game_id"]}, action is {raw_action["action_id"]} and type is {raw_action["description"]}\nPlayers on court are {players[raw_action["home_club"]]}'
+                        raise Exception(error)
 
-                                    elif next_raw_action['description'] == 'Uscita' and player == player_in:
-                                        break
+                    if len(players[raw_action['home_club']]) != 5:
+                        error = f'Error with team {raw_action["team"]} in action {raw_action["action_id"]} during game {game_website_id}:\nthere are not 5 players on court!\nSub: {player_to_be_inserted} for {player_to_be_removed}\nOn court: {players[raw_action["home_club"]]}\nPending: {pending_subs[raw_action["home_club"]]}'
+                        raise Exception(error)
 
-                            if not found:
-                                next_raw_action['checked'] = True
+                    raw_action['player_in'] = player_to_be_inserted
+                    raw_action['player_out'] = player_to_be_removed
+                    raw_action['home_players'] = home_team_players.copy()
+                    raw_action['away_players'] = away_team_players.copy()
+                    raw_action['description'] = 'Substitution'
 
-                                break
-                                # raise SubstitutionError(f"Could not find a player to replace {player_out}, {sub}")
+                    actions.append(raw_action)
 
-                        # switch players
-                        elif player_out not in players[raw_action['home_club']] and player_in in players[
-                            raw_action['home_club']]:
-                            #
-                            # player_in, player_out = player_out, player_in
-                            # sub = f"SUB: {player_in} for {player_out} [{raw_action['period']} - {raw_action['minute']:02d}:{raw_action['seconds']:02d}]"
-                            #
-                            # print(f'switched players | {sub}')
-                            next_raw_action['checked'] = True
+                else:
+                    pending_subs[raw_action['home_club']][raw_action['description']].add(player)
 
-                            # print(f"Ignored {sub}")
-                            break
+                # raw_action['home_players'] = home_team_players.copy()
+                # raw_action['away_players'] = away_team_players.copy()
+                #
+                # actions.append(raw_action)
 
-                        elif player_out not in players[raw_action['home_club']] and self.current_game[
-                            'game_id'] in faulted_games:
-                            next_raw_action['checked'] = True
-
-                            # print(f"Faulted game, ignored {sub}")
-                            break
-
-                        if sub_in in substitutions or sub_out in substitutions:
-                            next_raw_action['checked'] = True
-                            break
-
-                        elif player_out not in players[raw_action['home_club']]:
-                            # return actions
-                            raise SubstitutionError(
-                                f"{player_out} should be on court for {team_descriptions[raw_action['home_club']]} team but he is not. On court players are {players[raw_action['home_club']]}\nSub is {sub}\n{self.current_game}")
-
-                        else:
-                            player_out_index = players[raw_action['home_club']].index(player_out)
-                            players[raw_action['home_club']][player_out_index] = player_in
-                            substitutions.add(sub_out)
-                            substitutions.add(sub_in)
-
-                        next_raw_action['checked'] = True
-
-                        raw_action['player_in'] = player_in
-                        raw_action['player_out'] = player_out
-                        raw_action['home_players'] = home_team_players.copy()
-                        raw_action['away_players'] = away_team_players.copy()
-                        raw_action['description'] = 'Substitution'
-
-                        actions.append(raw_action)
-
-                        break
+            else:
+                continue
 
         return actions
 
@@ -591,12 +564,14 @@ class LBAScraper(Scraper):
             action['date'] = self.current_game['date']
 
             # print(raw_action['home_players'])
+            ap_l = list(raw_action['away_players'])
             for i in range(len(raw_action['away_players'])):
-                action[f"a{i + 1}"] = raw_action['away_players'][i]
+                action[f"a{i + 1}"] = ap_l[i]
 
             # print(raw_action['away_players'])
+            hp_l = list(raw_action['home_players'])
             for i in range(len(raw_action['home_players'])):
-                action[f"h{i + 1}"] = raw_action['home_players'][i]
+                action[f"h{i + 1}"] = hp_l[i]
 
             period = raw_action['period']
             action['period'] = period
@@ -823,6 +798,9 @@ class LBAScraper(Scraper):
                 if not boxes:
                     continue
 
+                if type(boxes) == type:
+                    print(self.current_game['game_id'])
+
                 for team in boxes:
                     players_df = pd.concat([players_df, pd.DataFrame(boxes[team]['players'])], ignore_index=True)
                     team_df = pd.concat([team_df, pd.DataFrame(boxes[team]['team'])], ignore_index=True)
@@ -1014,3 +992,43 @@ class LBAScraper(Scraper):
         else:
             print(f"{code} not recognized in allowed values")
             return None
+
+def get_faulted_actions():
+    return {
+        '23482': [652, 653, 654, 655, 656, 659, 660, 661, 647, 648],
+        '23371': [503, 505],
+        '23379': [466, 467, 468, 469],
+        '23406': [225],
+        '23569': [580, 581],
+        '23579': [370]
+    }
+
+
+def get_actions_to_edit():
+    return {
+        '23371': {
+            535: {
+                'seconds': 13
+            },
+        },
+        '23406': {
+            193: {
+                'player_name': 'Giovanni',
+                'player_surname': 'De Nicolao'
+            }
+        }
+    }
+
+
+def get_actions_to_sort():
+    return {
+        '23371': [(418, 402), ]
+    }
+
+
+def get_actions_to_add():
+    return {
+        '23393': [(266, {'action_id': None, 'description': 'Ingresso', 'player_id': 2697, 'team_id': 1462, 'home_club': 1, 'in_area': False, 'dunk': 0, 'seconds': 0, 'minute': 0, 'period': 3, 'order': 42200, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 382, 'print_time': '10:00', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Kyle', 'player_surname': 'Hines', 'player_number': '42', 'team_name': 'A|X Armani Exchange Milano', 'id': None})],
+        '23480': [(351, {'action_id': None, 'description': 'Uscita', 'player_id': 3951, 'team_id': 1477, 'home_club': 0, 'in_area': False, 'dunk': 0, 'seconds': 27, 'minute': 6, 'period': 3, 'order': 62800, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 479, 'print_time': '03:33', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Valerio', 'player_surname': 'Mazzola', 'player_number': '22', 'team_name': 'Umana Reyer Venezia', 'id': None}),
+                  (352, {'action_id': 483, 'description': 'Ingresso', 'player_id': 5834, 'team_id': 1477, 'home_club': 0, 'in_area': False, 'dunk': 0, 'seconds': 27, 'minute': 6, 'period': 3, 'order': 62900, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 479, 'print_time': '03:33', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Michele', 'player_surname': 'Vitali', 'player_number': '31', 'team_name': 'Umana Reyer Venezia', 'id': None})]
+    }
