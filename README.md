@@ -24,13 +24,13 @@ Then you are ready to go!
 
 You can download the data in csv format by typing:
 ```shell
-python3 run.py -l LBA -s '2021-2022'
+python run.py -l LBA -s 2021-2022
 ```
 This downloads the last LBA season, and saves it by default in the ```csvs``` directory inside the repository.
 
 In case you want to save the files in a different directory you can simply add the output parameter:
 ```shell
-python3 run.py -l LBA -s '2021-2022' -o directory
+python run.py -l LBA -s 2021-2022 -o directory
 ```
 
 In both the previous cases you only download data from the last season. If you don't pass the ```-s``` argument, by default the script will download all possible data in the history of the Italian League.
@@ -38,13 +38,13 @@ You are free to do it, but know in advance that the code has been tested only fo
 
 For this reason, in case you are interested only in the box-scores, you can run the script ignoring play-by-play:
 ```shell
-python3 run.py -l LBA -s '2018-2019' --ignore_pbp
+python run.py -l LBA -s 2018-2019 --ignore_pbp
 ```
 
 Also, you can edit some minor details such as the separators to use for decimal number and csv files. You can change the default ones by using the `--decimal_separator` and the `--csv_separator` flags. For instance if you want to use `;` as csv separator and `,` as decimal separator, you can simply run:
 
 ```shell
-python3 run.py -l LBA -s '2021-2022' --decimal_separator "," --csv_separator ";" 
+python run.py -l LBA -s 2021-2022 --decimal_separator "," --csv_separator ";" 
 ```
 
 You should know that due to server-side errors play-by-play logs for the 2020-2021 and previous seasons are incomplete and sometimes faulted.
