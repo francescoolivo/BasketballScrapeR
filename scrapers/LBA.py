@@ -188,7 +188,7 @@ class LBAScraper(Scraper):
         session.mount('https://', adapter)
 
         period = 1
-        period_url = f'{url}/{period}'
+        period_url = f'{url}/{period}/ASC'
         try:
             response = session.get(period_url).json()
         except json.decoder.JSONDecodeError:
@@ -197,7 +197,7 @@ class LBAScraper(Scraper):
         while response['data']['pbp'] is not None and response['data']['pbp']:
             actions += response['data']['pbp']
             period += 1
-            period_url = f'{url}/{period}'
+            period_url = f'{url}/{period}/ASC'
             try:
                 response = session.get(period_url).json()
             except json.decoder.JSONDecodeError:
