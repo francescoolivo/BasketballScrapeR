@@ -597,7 +597,9 @@ class LBAScraper(Scraper):
                 action_start = elapsed_time
             else:
                 action_start = timedelta(minutes=0)
+                period_start = period
                 action['play_length'] = elapsed_time - action_start
+                action_start = elapsed_time
 
             action['play_id'] = raw_action['action_id']
 
