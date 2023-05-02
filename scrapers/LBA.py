@@ -409,7 +409,7 @@ class LBAScraper(Scraper):
                         continue
                 if sub_str in subs:
                     raw_action['to_ignore'] = True
-                    # print(f'Sub {sub_str} in game {game_website_id} is replicated, thus ignored')
+                    print(f'Sub {sub_str} in game {game_website_id} is replicated, thus ignored')
                 subs.add(sub_str)
 
         # count the number of in and out substitutions for each team, to check that they are the same
@@ -822,11 +822,8 @@ class LBAScraper(Scraper):
             tadd_df = self.get_tadd(season_id=season)
             # tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
-            # games = self.get_games(seasons[season])
-
-            games = [
-                {'game_id': '23908', 'data_set': 'RS', 'date': datetime.today()},
-            ]
+            games = self.get_games(seasons[season])
+            # games = [{'game_id': '23928', 'data_set': 'RS', 'date': datetime.today()}]
 
             for game in tqdm(games):
 
@@ -1047,7 +1044,8 @@ def get_faulted_actions():
         '23579': [370],
         '23759': [701, 702, 703, 704],
         '23927': [593, 594, 595, 596],
-        '23908': [585, 586, 587, 588]
+        '23908': [585, 586, 587, 588],
+        '23928': [642, 647],
     }
 
 
