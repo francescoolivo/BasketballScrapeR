@@ -57,7 +57,7 @@ for league in args.leagues:
         year_code = f'{year % 1000}{(year + 1) % 1000}'
 
         dir_path = os.path.join(args.output, league, year_code)
-
+        # print(dir_path)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 

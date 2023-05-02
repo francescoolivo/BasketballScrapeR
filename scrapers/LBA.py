@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import json
 import math
@@ -440,7 +441,6 @@ class LBAScraper(Scraper):
         }
 
         for raw_action in raw_actions:
-
             if raw_action['description'] not in [IN_SUB_STRING, OUT_SUB_STRING]:
                 raw_action['home_players'] = home_team_players.copy()
                 raw_action['away_players'] = away_team_players.copy()
@@ -474,14 +474,17 @@ class LBAScraper(Scraper):
                         players[raw_action['home_club']].remove(player_to_be_removed)
                         players[raw_action['home_club']].add(player_to_be_inserted)
 
+                        # print(f'Sub IN {player_to_be_inserted} for {player_to_be_removed}. On court: {players[raw_action["home_club"]]}')
 
                     except KeyError:
                         error = f'Key Error: could not make substitution {player_to_be_inserted} for {player_to_be_removed}. Game is {self.current_game["game_id"]}, action is {raw_action["action_id"]} and type is {raw_action["description"]}\nPlayers on court are {players[raw_action["home_club"]]}'
-                        raise Exception(error)
+                        logging.error(error)
+                        raise Exception()
 
                     if len(players[raw_action['home_club']]) != 5:
-                        error = f'Error with team {raw_action["team"]} in action {raw_action["action_id"]} during game {game_website_id}:\nthere are not 5 players on court!\nSub: {player_to_be_inserted} for {player_to_be_removed}\nOn court: {players[raw_action["home_club"]]}\nPending: {pending_subs[raw_action["home_club"]]}'
-                        raise Exception(error)
+                        error = f'Error with team {raw_action["team_name"]} in action {raw_action["action_id"]} during game {game_website_id}:\nthere are not 5 players on court!\nSub: {player_to_be_inserted} for {player_to_be_removed}\nOn court: {players[raw_action["home_club"]]}\nPending: {pending_subs[raw_action["home_club"]]}'
+                        logging.error(error)
+                        raise Exception()
 
                     raw_action['player_in'] = player_to_be_inserted
                     raw_action['player_out'] = player_to_be_removed
@@ -543,6 +546,7 @@ class LBAScraper(Scraper):
 
     def clean_actions(self, raw_actions):
 
+        pd.DataFrame(raw_actions).to_csv('test.csv')
         raw_actions = self.handle_substitutions(raw_actions)
         raw_actions = self.add_ft_count(raw_actions)
 
@@ -584,22 +588,44 @@ class LBAScraper(Scraper):
             action['home_score'] = home_score
             action['away_score'] = away_score
 
+            # print(raw_action['minute'], raw_action['seconds'])
+
             elapsed_time = timedelta(minutes=raw_action['minute'], seconds=raw_action['seconds'])
+            elapsed_hours, elapsed_remainder = divmod(elapsed_time.seconds, 3600)
+            elapsed_minutes, elapsed_seconds = divmod(elapsed_remainder, 60)
+            elapsed_str = f'{elapsed_minutes:02d}:{elapsed_seconds:02d}'
 
             period_minutes = 10 if raw_action['period'] <= 4 else 5
             time_duration = timedelta(minutes=period_minutes)
 
-            action['remaining_time'] = time_duration - elapsed_time
-            action['elapsed_time'] = elapsed_time
+            remaining_time = time_duration - elapsed_time
+            remaining_hours, remaining_remainder = divmod(remaining_time.seconds, 3600)
+            remaining_minutes, remaining_seconds = divmod(remaining_remainder, 60)
+            remaining_str = f'{remaining_minutes:02d}:{remaining_seconds:02d}'
 
-            if period == period_start:
-                action['play_length'] = elapsed_time - action_start
-                action_start = elapsed_time
-            else:
+            action['remaining_time'] = remaining_str
+            action['elapsed_time'] = elapsed_str
+
+            # print(action['remaining_time'], action['elapsed_time'], '\n')
+
+            # if period == period_start:
+            #     action['play_length'] = elapsed_time - action_start
+            #     action_start = elapsed_time
+            # else:
+            #     action_start = timedelta(minutes=0)
+            #     period_start = period
+            #     action['play_length'] = elapsed_time - action_start
+            #     action_start = elapsed_time
+            
+            if period != period_start:
                 action_start = timedelta(minutes=0)
                 period_start = period
-                action['play_length'] = elapsed_time - action_start
-                action_start = elapsed_time
+            play_length = elapsed_time - action_start
+            play_length_hours, play_length_remainder = divmod(play_length.seconds, 3600)
+            play_length_minutes, play_length_seconds = divmod(play_length_remainder, 60)
+            play_length_str = f'{play_length_minutes:02d}:{play_length_seconds:02d}'
+            action['play_length'] = play_length_str
+            action_start = elapsed_time
 
             action['play_id'] = raw_action['action_id']
 
@@ -699,15 +725,27 @@ class LBAScraper(Scraper):
 
             # original coordinates place the origin in the bottom left corner. The coordinate span is (0, 100) for both axis, so we shall divide by the number of feet of the size
             if raw_action['x'] and raw_action['y']:
+                x = (raw_action['y'] - 50) * .15
+                y = (raw_action['x'] - 50) * .28
+
                 original_x = raw_action['x']
                 original_y = raw_action['y']
 
-                converted_y = original_x * .9186
-                converted_x = original_y * .4921
+                if x >= 0:
+                    x = -x
+                    y = -y
+                # y += (14 - 1.575)
+
+                converted_y = y
+                converted_x = x
+
+                converted_y = x
+                converted_x = y
 
                 # left side
                 if raw_action['side'] == 0:  # and raw_action['side_area_zone'] == 'A':
                     x_rim = 5.17
+
                 else:
                     x_rim = 91.86 - 5.17
 
@@ -784,7 +822,11 @@ class LBAScraper(Scraper):
             tadd_df = self.get_tadd(season_id=season)
             # tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
-            games = self.get_games(seasons[season])
+            # games = self.get_games(seasons[season])
+
+            games = [
+                {'game_id': '23908', 'data_set': 'RS', 'date': datetime.today()},
+            ]
 
             for game in tqdm(games):
 
@@ -1003,7 +1045,9 @@ def get_faulted_actions():
         '23406': [225],
         '23569': [580, 581],
         '23579': [370],
-        '23759': [701, 702, 703, 704]
+        '23759': [701, 702, 703, 704],
+        '23927': [593, 594, 595, 596],
+        '23908': [585, 586, 587, 588]
     }
 
 
