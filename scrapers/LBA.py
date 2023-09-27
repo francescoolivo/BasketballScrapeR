@@ -409,7 +409,7 @@ class LBAScraper(Scraper):
                         continue
                 if sub_str in subs:
                     raw_action['to_ignore'] = True
-                    print(f'Sub {sub_str} in game {game_website_id} is replicated, thus ignored')
+                    # logging.info(f'Sub {sub_str} in game {game_website_id} is replicated, thus ignored')
                 subs.add(sub_str)
 
         # count the number of in and out substitutions for each team, to check that they are the same
@@ -823,7 +823,7 @@ class LBAScraper(Scraper):
             # tadd_df = pd.DataFrame(tadd, columns=['Team', 'team', 'Conference', 'Division', 'Rank', 'Playoff'])
 
             games = self.get_games(seasons[season])
-            # games = [{'game_id': '23928', 'data_set': 'RS', 'date': datetime.today()}]
+            # games = [{'game_id': '24064', 'data_set': 'RS', 'date': datetime.today()}]
 
             for game in tqdm(games):
 
@@ -1046,6 +1046,7 @@ def get_faulted_actions():
         '23927': [593, 594, 595, 596],
         '23908': [585, 586, 587, 588],
         '23928': [642, 647],
+        '24064': [486],
     }
 
 
@@ -1061,6 +1062,12 @@ def get_actions_to_edit():
                 'player_name': 'Giovanni',
                 'player_surname': 'De Nicolao'
             }
+        },
+        '24064': {
+            487: {
+                'minute': 8,
+                'seconds': 42,
+            }
         }
     }
 
@@ -1075,5 +1082,6 @@ def get_actions_to_add():
     return {
         '23393': [(266, {'action_id': None, 'description': 'Ingresso', 'player_id': 2697, 'team_id': 1462, 'home_club': 1, 'in_area': False, 'dunk': 0, 'seconds': 0, 'minute': 0, 'period': 3, 'order': 42200, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 382, 'print_time': '10:00', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Kyle', 'player_surname': 'Hines', 'player_number': '42', 'team_name': 'A|X Armani Exchange Milano', 'id': None})],
         '23480': [(351, {'action_id': None, 'description': 'Uscita', 'player_id': 3951, 'team_id': 1477, 'home_club': 0, 'in_area': False, 'dunk': 0, 'seconds': 27, 'minute': 6, 'period': 3, 'order': 62800, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 479, 'print_time': '03:33', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Valerio', 'player_surname': 'Mazzola', 'player_number': '22', 'team_name': 'Umana Reyer Venezia', 'id': None}),
-                  (352, {'action_id': 483, 'description': 'Ingresso', 'player_id': 5834, 'team_id': 1477, 'home_club': 0, 'in_area': False, 'dunk': 0, 'seconds': 27, 'minute': 6, 'period': 3, 'order': 62900, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 479, 'print_time': '03:33', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Michele', 'player_surname': 'Vitali', 'player_number': '31', 'team_name': 'Umana Reyer Venezia', 'id': None})]
+                  (352, {'action_id': 483, 'description': 'Ingresso', 'player_id': 5834, 'team_id': 1477, 'home_club': 0, 'in_area': False, 'dunk': 0, 'seconds': 27, 'minute': 6, 'period': 3, 'order': 62900, 'side': None, 'x': None, 'y': None, 'score': None, 'linked_action_id': 479, 'print_time': '03:33', 'action_1_qualifier_code': None, 'action_2_qualifier_code': None, 'action_1_qualifier_description': None, 'action_2_qualifier_description': None, 'side_area_zone': None, 'side_area_code': None, 'player_name': 'Michele', 'player_surname': 'Vitali', 'player_number': '31', 'team_name': 'Umana Reyer Venezia', 'id': None}),
+                  ],
     }
